@@ -1,0 +1,579 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#171329">
+  <title>Our Music ♡</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #100e1b;
+      --panel: #1d192c;
+      --text: #fff8ff;
+      --muted: #bcb4cb;
+      --pink: #ff78b7;
+      --purple: #a78bfa;
+      --border: #39314e;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: radial-gradient(ellipse at top, #302040, var(--bg) 65%);
+      color: var(--text);
+      font-family: system-ui, sans-serif;
+      min-height: 100vh;
+    }
+
+    main {
+      max-width: 760px;
+      margin: auto;
+      padding: 22px 15px 50px;
+    }
+
+    header { text-align: center; padding: 20px 0; }
+
+    h1 {
+      font-size: clamp(2rem, 8vw, 3.1rem);
+      margin: 0;
+      letter-spacing: -1.5px;
+    }
+
+    h1 span { color: var(--pink); }
+
+    .subtitle { color: var(--muted); margin-top: 8px; }
+
+    .panel {
+      background: rgba(29, 25, 44, .94);
+      border: 1px solid var(--border);
+      border-radius: 19px;
+      padding: 17px;
+      margin: 15px 0;
+    }
+
+    h2 { font-size: 1.1rem; margin: 0 0 13px; }
+
+    input, button {
+      font: inherit;
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    input {
+      min-width: 0;
+      width: 100%;
+      background: #100e1b;
+      border: 1px solid var(--border);
+      color: white;
+    }
+
+    button {
+      border: 0;
+      background: var(--pink);
+      color: #241020;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: #37304b;
+      color: white;
+      border: 1px solid var(--border);
+    }
+
+    button:disabled { opacity: .5; }
+
+    .row { display: flex; gap: 8px; }
+    .row > * { flex: 1; }
+
+    .status {
+      color: var(--muted);
+      font-size: .92rem;
+      overflow-wrap: anywhere;
+      margin: 10px 0 0;
+    }
+
+    .room-code {
+      color: var(--pink);
+      font-size: 1.4rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      overflow-wrap: anywhere;
+    }
+
+    .song {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .song:last-child { border-bottom: 0; }
+
+    .cover {
+      width: 58px;
+      height: 58px;
+      border-radius: 10px;
+      object-fit: cover;
+      background: #37304b;
+      flex-shrink: 0;
+    }
+
+    .song-info { flex: 1; min-width: 0; }
+
+    .song-title {
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+
+    .song-artist {
+      color: var(--muted);
+      font-size: .9rem;
+      margin-top: 3px;
+    }
+
+    .song button { padding: 9px 12px; }
+
+    .empty { color: var(--muted); font-size: .92rem; }
+
+    audio { width: 100%; margin-top: 10px; }
+
+    .tiny { font-size: .8rem; color: var(--muted); line-height: 1.5; }
+
+    footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: .8rem;
+      padding-top: 12px;
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Our <span>Music ♡</span></h1>
+    <div class="subtitle">One little room for two hearts, miles apart.</div>
+  </header>
+
+  <section class="panel">
+    <h2>♡ Our private room</h2>
+    <div class="row">
+      <button id="createBtn">Create room</button>
+      <button id="copyBtn" class="secondary" disabled>Copy code</button>
+    </div>
+    <div style="height:10px"></div>
+    <div class="row">
+      <input id="roomInput" maxlength="16" placeholder="Enter room code" autocomplete="off">
+      <button id="joinBtn">Join</button>
+    </div>
+    <p id="roomDisplay" class="room-code"></p>
+    <p id="roomStatus" class="status">Create a room or enter a room code.</p>
+  </section>
+
+  <section class="panel">
+    <h2>♫ Find a song</h2>
+    <form id="searchForm" class="row">
+      <input id="searchInput" placeholder="Search song or artist…" maxlength="100">
+      <button id="searchBtn">Search</button>
+    </form>
+    <div id="searchResults" style="margin-top:12px">
+      <p class="empty">Search for a song to get started.</p>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>♡ Now playing</h2>
+    <div id="nowPlaying" class="empty">Choose a song from your shared queue.</div>
+    <audio id="player" controls preload="none"></audio>
+    <p class="tiny">Previews are usually about 30 seconds. Playback on another phone may require tapping Play there first.</p>
+  </section>
+
+  <section class="panel">
+    <h2>♫ Our shared queue</h2>
+    <div id="queueList"><p class="empty">Join a room to see its queue.</p></div>
+  </section>
+
+  <footer>Made with ♡ for two people, wherever they are.</footer>
+</main>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+
+  let roomCode = "";
+  let queue = [];
+  let currentTrackId = null;
+  let lastRemotePosition = 0;
+  let lastRemotePlaying = false;
+  let lastPositionSent = 0;
+  let applyingRemoteState = false;
+  let pollBusy = false;
+
+  const player = $("player");
+
+  async function api(action, extra = {}) {
+    const response = await fetch("/api/music", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action,
+        ...(roomCode ? { roomCode } : {}),
+        ...extra
+      })
+    });
+
+    let data;
+
+    try {
+      data = await response.json();
+    } catch {
+      throw new Error("The server returned an unreadable response.");
+    }
+
+    if (!response.ok || !data.ok) {
+      throw new Error(data.error || "Request failed.");
+    }
+
+    return data;
+  }
+
+  function status(message) {
+    $("roomStatus").textContent = message;
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, char => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    })[char]);
+  }
+
+  function validArtwork(url) {
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === "https:" &&
+        parsed.hostname.endsWith(".mzstatic.com")
+        ? parsed.href : "";
+    } catch {
+      return "";
+    }
+  }
+
+  function songHtml(track, buttonText, buttonAction, index) {
+    const cover = validArtwork(track.artworkUrl);
+    return `
+      <div class="song">
+        <img class="cover"
+          src="${escapeHtml(cover)}"
+          alt=""
+          loading="lazy"
+          onerror="this.style.visibility='hidden'">
+        <div class="song-info">
+          <div class="song-title">${escapeHtml(track.trackName)}</div>
+          <div class="song-artist">${escapeHtml(track.artistName)}</div>
+        </div>
+        <button class="secondary"
+          data-action="${buttonAction}"
+          data-index="${index}">${buttonText}</button>
+      </div>`;
+  }
+
+  function getTrackFromQueue(item) {
+    return item && item.track ? item.track : item;
+  }
+
+  function renderQueue() {
+    const target = $("queueList");
+
+    if (!roomCode) {
+      target.innerHTML = '<p class="empty">Join a room first.</p>';
+      return;
+    }
+
+    if (!queue.length) {
+      target.innerHTML = '<p class="empty">Your shared queue is empty. Search for a song and add one.</p>';
+      return;
+    }
+
+    target.innerHTML = queue.map((item, index) =>
+      songHtml(getTrackFromQueue(item), "Play", "play", index)
+    ).join("");
+  }
+
+  function renderNowPlaying(track) {
+    if (!track) {
+      $("nowPlaying").innerHTML =
+        '<p class="empty">Choose a song from your shared queue.</p>';
+      return;
+    }
+
+    const cover = validArtwork(track.artworkUrl);
+
+    $("nowPlaying").innerHTML = `
+      <div class="song">
+        ${cover ? `<img class="cover" src="${escapeHtml(cover)}" alt="">` : ""}
+        <div class="song-info">
+          <div class="song-title">${escapeHtml(track.trackName)}</div>
+          <div class="song-artist">${escapeHtml(track.artistName)}</div>
+        </div>
+      </div>`;
+  }
+
+  async function createRoom() {
+    try {
+      status("Creating your room…");
+      const data = await api("createRoom");
+
+      roomCode = data.roomCode;
+      $("roomInput").value = roomCode;
+      $("roomDisplay").textContent = roomCode;
+      $("copyBtn").disabled = false;
+
+      status("Room created! Share this code with your girlfriend.");
+      await refreshRoom();
+    } catch (error) {
+      status(error.message);
+    }
+  }
+
+  async function joinRoom() {
+    const code = $("roomInput").value.trim().toUpperCase();
+
+    if (!/^[A-HJ-NP-Z2-9]{16}$/.test(code)) {
+      status("Please enter the complete 16-character room code.");
+      return;
+    }
+
+    try {
+      roomCode = code;
+      await api("joinRoom");
+      $("roomDisplay").textContent = roomCode;
+      $("copyBtn").disabled = false;
+      status("Joined room! Loading your shared queue…");
+      await refreshRoom();
+    } catch (error) {
+      roomCode = "";
+      $("roomDisplay").textContent = "";
+      $("copyBtn").disabled = true;
+      status(error.message);
+    }
+  }
+
+  async function searchSongs(event) {
+    event?.preventDefault();
+
+    const query = $("searchInput").value.trim();
+
+    if (!query) {
+      $("searchResults").innerHTML =
+        '<p class="empty">Type a song or artist name first.</p>';
+      return;
+    }
+
+    $("searchResults").innerHTML =
+      '<p class="empty">Searching songs…</p>';
+
+    try {
+      const data = await api("search", { query });
+
+      if (!data.tracks.length) {
+        $("searchResults").innerHTML =
+          '<p class="empty">No songs with previews found. Try another search.</p>';
+        return;
+      }
+
+      $("searchResults").innerHTML = data.tracks.map((track, index) =>
+        songHtml(track, "＋ Add", "add", index)
+      ).join("");
+
+      $("searchResults")._tracks = data.tracks;
+    } catch (error) {
+      $("searchResults").innerHTML =
+        `<p class="empty">${escapeHtml(error.message)}</p>`;
+    }
+  }
+
+  async function addTrack(track) {
+    if (!roomCode) {
+      status("Create or join a room before adding songs.");
+      return;
+    }
+
+    try {
+      await api("addTrack", { track });
+      status("Song added to your shared queue!");
+      await refreshRoom();
+    } catch (error) {
+      status(error.message);
+    }
+  }
+
+  async function playTrack(track) {
+    if (!roomCode) return;
+
+    try {
+      applyingRemoteState = true;
+      player.src = track.previewUrl;
+      player.load();
+      currentTrackId = track.trackId;
+      renderNowPlaying(track);
+      await api("setPlayback", {
+        currentTrack: track,
+        isPlaying: true,
+        positionSeconds: 0
+      });
+      lastRemotePosition = 0;
+      lastRemotePlaying = true;
+      try {
+        await player.play();
+      } catch {
+        status("Song selected. Tap Play to start the preview.");
+      }
+      applyingRemoteState = false;
+    } catch (error) {
+      applyingRemoteState = false;
+      status(error.message);
+    }
+  }
+
+  async function refreshRoom() {
+    if (!roomCode || pollBusy) return;
+
+    pollBusy = true;
+
+    try {
+      const data = await api("getRoom");
+      queue = data.queue || [];
+      renderQueue();
+
+      const room = data.room || {};
+      const track = room.current_track;
+
+      if (track) {
+        renderNowPlaying(track);
+
+        if (currentTrackId !== track.trackId) {
+          currentTrackId = track.trackId;
+          player.src = track.previewUrl;
+          player.load();
+        }
+
+        const remotePosition = Number(room.position_seconds) || 0;
+        lastRemotePosition = remotePosition;
+        lastRemotePlaying = !!room.is_playing;
+
+        if (
+          Number.isFinite(player.duration) &&
+          Math.abs(player.currentTime - remotePosition) > 5
+        ) {
+          applyingRemoteState = true;
+          player.currentTime = remotePosition;
+          applyingRemoteState = false;
+        }
+
+        if (room.is_playing && player.paused) {
+          player.play().catch(() => {
+            status("Room is playing. Tap Play on this phone to listen.");
+          });
+        } else if (!room.is_playing && !player.paused) {
+          player.pause();
+        }
+      } else {
+        renderNowPlaying(null);
+      }
+    } catch (error) {
+      status(error.message);
+    } finally {
+      pollBusy = false;
+    }
+  }
+
+  $("createBtn").addEventListener("click", createRoom);
+  $("joinBtn").addEventListener("click", joinRoom);
+  $("copyBtn").addEventListener("click", async () => {
+    if (!roomCode) return;
+    try {
+      await navigator.clipboard.writeText(roomCode);
+      status("Room code copied. Send it to your girlfriend.");
+    } catch {
+      status("Your room code is " + roomCode);
+    }
+  });
+
+  $("searchForm").addEventListener("submit", searchSongs);
+
+  $("searchResults").addEventListener("click", event => {
+    const button = event.target.closest("button[data-action]");
+    if (!button) return;
+
+    const tracks = $("searchResults")._tracks || [];
+    const track = tracks[Number(button.dataset.index)];
+
+    if (track) addTrack(track);
+  });
+
+  $("queueList").addEventListener("click", event => {
+    const button = event.target.closest("button[data-action='play']");
+    if (!button) return;
+
+    const item = queue[Number(button.dataset.index)];
+    const track = getTrackFromQueue(item);
+
+    if (track) playTrack(track);
+  });
+
+  player.addEventListener("play", async () => {
+    if (applyingRemoteState || !roomCode) return;
+
+    try {
+      await api("setPlayback", {
+        isPlaying: true,
+        positionSeconds: player.currentTime || 0
+      });
+    } catch (error) {
+      status(error.message);
+    }
+  });
+
+  player.addEventListener("pause", async () => {
+    if (applyingRemoteState || !roomCode) return;
+
+    try {
+      await api("setPlayback", {
+        isPlaying: false,
+        positionSeconds: player.currentTime || 0
+      });
+    } catch (error) {
+      status(error.message);
+    }
+  });
+
+  player.addEventListener("timeupdate", async () => {
+    if (
+      applyingRemoteState ||
+      !roomCode ||
+      !currentTrackId ||
+      Date.now() - lastPositionSent < 5000
+    ) return;
+
+    lastPositionSent = Date.now();
+
+    try {
+      await api("setPlayback", {
+        positionSeconds: player.currentTime || 0
+      });
+    } catch {}
+  });
+
+  setInterval(refreshRoom, 4000);
+})();
+</script>
+</body>
+</html>
